@@ -1,8 +1,100 @@
-/*
+.ght-root {
+  padding: 12px;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.ght-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 
-If your plugin does not need CSS, delete this file.
+.ght-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 12px;
+  background: var(--background-primary);
+}
 
-*/
+.ght-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ght-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ght-members {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.ght-pill {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ght-pill:hover {
+  background: var(--background-modifier-hover);
+}
+
+.ght-tasklist {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ght-task {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+}
+
+.ght-task:hover {
+  background: var(--background-modifier-hover);
+}
+
+.ght-task-title {
+  cursor: pointer;
+}
+
+.ght-muted {
+  color: var(--text-muted);
+}
+
+.ght-btn {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  background: var(--background-primary);
+}
+
+.ght-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.ght-select {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--background-primary);
+}
+
+.ght-danger {
+  border-color: var(--text-error);
+  color: var(--text-error);
+}

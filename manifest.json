@@ -1,11 +1,10 @@
 {
-	"id": "habit-tracker-plugin",
-	"name": "Habit Tracker",
-	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Track Habits for any amount of people or depth.",
-	"author": "Jaxon Durken",
-	"authorUrl": "",
-	"fundingUrl": "",
-	"isDesktopOnly": true
+  "id": "habit-tracker-plugin",
+  "name": "Group Habit Tracker",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Group habit tracker with members, group tasks, recurrence, archiving, and progress charts.",
+  "author": "Jaxon Durken",
+  "authorUrl": "",
+  "isDesktopOnly": false
 }

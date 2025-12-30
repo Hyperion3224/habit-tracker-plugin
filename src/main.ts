@@ -1,57 +1,84 @@
 import { Plugin, WorkspaceLeaf } from "obsidian";
-import { HabitsDbStore } from "./db";
-import { DashboardView, VIEW_TYPE_HABITS_DASHBOARD } from "./views/DashboardView";
-import { ParticipantView, VIEW_TYPE_HABITS_PARTICIPANT, ParticipantViewState } from "./views/ParticipantView";
+import { GHTStore } from "./store";
+import { GHTSettingTab, DEFAULT_SETTINGS, type GHTPluginSettings } from "./settings";
+import { MainView, VIEW_TYPE_MAIN } from "./viewMain";
+import { MemberView, VIEW_TYPE_MEMBER } from "./viewMember";
 
-export default class HabitTrackerPlugin extends Plugin {
-  private store!: HabitsDbStore;
+export default class GroupHabitTrackerPlugin extends Plugin {
+  settings: GHTPluginSettings = DEFAULT_SETTINGS;
+  store!: GHTStore;
 
-  async onload() {
-    this.store = new HabitsDbStore(this.app);
-    await this.store.load();
+  async onload(): Promise<void> {
+    await this.loadSettings();
 
-    this.registerView(VIEW_TYPE_HABITS_DASHBOARD, (leaf: WorkspaceLeaf) => {
-      return new DashboardView(leaf, this.store, (participantId) => this.openParticipant(participantId));
+    this.store = new GHTStore(this.app, {
+      folder: this.settings.dataFolder,
+      filename: this.settings.dbFilename
+    });
+    await this.store.init();
+
+    this.registerView(VIEW_TYPE_MAIN, (leaf) => new MainView(leaf, this));
+
+    this.registerView(VIEW_TYPE_MEMBER, (leaf) => {
+      const state = leaf.getViewState().state as any;
+      const memberId = (state?.memberId as string | undefined) ?? "";
+      return new MemberView(leaf, this, memberId);
     });
 
-    this.registerView(VIEW_TYPE_HABITS_PARTICIPANT, (leaf: WorkspaceLeaf) => {
-      // default state; will be replaced via setViewState
-      return new ParticipantView(leaf, this.store, { participantId: "" });
+    this.addRibbonIcon("check-circle", "Group Habit Tracker", () => {
+      void this.openMainView();
     });
 
-    this.addRibbonIcon("check-circle", "Open Habit Tracker Dashboard", async () => {
-      await this.openDashboard();
-    });
-
-    // Optional commands
+    this.addSettingTab(new GHTSettingTab(this.app, this));
+    
     this.addCommand({
-      id: "open-habit-dashboard",
-      name: "Open Habit Tracker Dashboard",
-      callback: () => this.openDashboard(),
+        id: "open-group-habit-tracker",
+        name: "Open Group Habit Tracker",
+        callback: () => {
+            void this.openMainView();
+        }
     });
+
   }
 
-  async openDashboard(): Promise<void> {
-    const leaf = this.app.workspace.getLeaf("tab");
-    await leaf.setViewState({ type: VIEW_TYPE_HABITS_DASHBOARD, active: true });
+  onunload(): void {}
+
+  async reinitStore(): Promise<void> {
+    this.store = new GHTStore(this.app, {
+      folder: this.settings.dataFolder,
+      filename: this.settings.dbFilename
+    });
+    await this.store.init();
+  }
+
+  async openMainView(): Promise<void> {
+    const leaf = this.getLeafForMain();
+    await leaf.setViewState({ type: VIEW_TYPE_MAIN, active: true });
     this.app.workspace.revealLeaf(leaf);
   }
 
-  async openParticipant(participantId: string): Promise<void> {
-    const leaf = this.app.workspace.getLeaf("tab");
-    const state: ParticipantViewState = { participantId };
-
+  async openMemberView(memberId: string): Promise<void> {
+    const leaf = this.app.workspace.getLeaf("split", "vertical");
     await leaf.setViewState({
-      type: VIEW_TYPE_HABITS_PARTICIPANT,
+      type: VIEW_TYPE_MEMBER,
       active: true,
+      state: { memberId }
     });
-
-    // Ensure view receives state
-    const view = leaf.view;
-    if (view instanceof ParticipantView) {
-      await view.setState(state);
-    }
-
     this.app.workspace.revealLeaf(leaf);
+  }
+
+  private getLeafForMain(): WorkspaceLeaf {
+    // Reuse existing main view leaf if present
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_MAIN);
+    const existing = leaves.find((l): l is WorkspaceLeaf => !!l);
+    return existing ?? this.app.workspace.getLeaf(true);
+  }
+
+  async loadSettings(): Promise<void> {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  }
+
+  async saveSettings(): Promise<void> {
+    await this.saveData(this.settings);
   }
 }
