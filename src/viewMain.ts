@@ -3,6 +3,8 @@ import type GroupHabitTrackerPlugin from "./main";
 import type { TaskOccurrence, WindowMode } from "./types";
 import { toYMD, enumerateDates, occurrenceLabel } from "./util";
 import { TaskModal } from "./modalTask";
+import { AddMemberModal } from "./modalMemberAdd";
+import { RemoveMemberModal } from "./modalMemberRemove";
 
 import {
   Chart,
@@ -102,25 +104,16 @@ export class MainView extends ItemView {
 
     const memberActions = memberCard.createDiv({ cls: "ght-row" });
     const addBtn = memberActions.createEl("button", { cls: "ght-btn", text: "Add member" });
-    addBtn.onclick = async () => {
-      const name = prompt("Member name?");
-      if (!name?.trim()) return;
-      this.plugin.store.addMember(name.trim());
-      new Notice("Member added.");
+    addBtn.onclick = () => {
+      new AddMemberModal(this.app, this.plugin.store).open();
     };
 
+
     const rmBtn = memberActions.createEl("button", { cls: "ght-btn ght-danger", text: "Remove member" });
-    rmBtn.onclick = async () => {
-      const name = prompt("Type exact member name to remove (soft delete):");
-      if (!name) return;
-      const m = members.find(x => x.name === name.trim());
-      if (!m) {
-        new Notice("Member not found.");
-        return;
-      }
-      this.plugin.store.softDeleteMember(m.id);
-      new Notice("Member removed (history retained).");
+    rmBtn.onclick = () => {
+      new RemoveMemberModal(this.app, this.plugin.store).open();
     };
+
 
     // Group task management card
     const groupTaskCard = root.createDiv({ cls: "ght-card" });
