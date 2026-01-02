@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, WorkspaceLeaf, ViewStateResult } from "obsidian";
 import type GroupHabitTrackerPlugin from "./main";
 import type { UUID, WindowMode } from "./types";
 import { enumerateDates, toYMD, occurrenceLabel } from "./util";
@@ -41,7 +41,25 @@ export class MemberView extends ItemView {
 
   getDisplayText(): string {
     const m = this.plugin.store.getDB().members.find(x => x.id === this.memberId);
-    return m ? `Member: ${m.name}` : "Member";
+    return m ? `Member: ${m.name}` : "Unknown member";
+  }
+
+  public getMemberId(): string {
+    return this.memberId;
+  } 
+
+  async setState(state: any, result: ViewStateResult): Promise<void> {
+    await super.setState(state, result);
+    this.memberId = state.memberId || "";
+    this.app.workspace.requestSaveLayout();
+    this.render();
+  }
+
+  // FIX: This ensures the memberId is updated when the view state is set
+  async setViewState(state: any, result: ViewStateResult): Promise<void> {
+    await super.setState(state, result);
+    this.memberId = state.memberId ?? "";
+    this.render();
   }
 
   async onOpen(): Promise<void> {
@@ -51,90 +69,69 @@ export class MemberView extends ItemView {
   }
 
   async onClose(): Promise<void> {
-    this.unsubscribe?.();
+    if (this.unsubscribe) this.unsubscribe();
     if (this.chart) this.chart.destroy();
   }
 
-  setMember(memberId: UUID): void {
-    this.memberId = memberId;
-    this.render();
-  }
-
   private render(): void {
-    const root = this.contentEl;
-    root.empty();
-    root.addClass("ght-root");
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.addClass("ght-view");
 
-    const db = this.plugin.store.getDB();
-    const member = db.members.find(m => m.id === this.memberId);
-
-    root.createEl("div", { cls: "ght-title", text: member ? member.name : "Unknown member" });
-
-    const modeRow = root.createDiv({ cls: "ght-row" });
-    modeRow.createEl("span", { cls: "ght-muted", text: "Window:" });
-
-    const select = modeRow.createEl("select", { cls: "ght-select" });
-    for (const m of ["day", "week", "month"] as WindowMode[]) {
-      const opt = select.createEl("option", { value: m, text: m.toUpperCase() });
-      if (m === this.mode) opt.selected = true;
+    const m = this.plugin.store.getDB().members.find(x => x.id === this.memberId);
+    if (!m) {
+      contentEl.createEl("h2", { text: "Unknown member" });
+      return;
     }
-    select.onchange = () => {
-      this.mode = select.value as WindowMode;
-      this.render();
-    };
 
-    // Chart
-    const chartCard = root.createDiv({ cls: "ght-card" });
-    chartCard.createEl("div", { cls: "ght-title", text: "Progress" });
-    chartCard.createEl("div", { cls: "ght-subtitle", text: "Completion % of due occurrences per day." });
+    contentEl.createEl("h2", { text: m.name });
 
-    this.canvas = chartCard.createEl("canvas");
+    // Mode toggles
+    const modes: WindowMode[] = ["day", "week", "month"];
+    const modeRow = contentEl.createDiv({ cls: "ght-row" });
+    for (const mo of modes) {
+      const btn = modeRow.createEl("button", {
+        cls: `ght-btn ${this.mode === mo ? "ght-active" : ""}`,
+        text: mo.toUpperCase()
+      });
+      btn.onclick = () => {
+        this.mode = mo;
+        this.render();
+      };
+    }
+
+    // Chart container
+    const chartWrap = contentEl.createDiv({ cls: "ght-chart-wrap" });
+    this.canvas = chartWrap.createEl("canvas");
     this.renderChart();
 
-    // Task list for selected window, with checkboxes
-    const listCard = root.createDiv({ cls: "ght-card" });
-    listCard.createEl("div", { cls: "ght-title", text: "Tasks" });
-    listCard.createEl("div", { cls: "ght-subtitle", text: "Click a task to edit in a modal." });
-
+    // Task list
+    const root = contentEl.createDiv({ cls: "ght-member-tasks" });
     const today = new Date();
-    const occs = this.plugin.store.ensureOccurrences(this.mode, today, this.memberId).filter(o => !o.archived);
+    const occs = this.plugin.store.ensureOccurrences(this.mode, today, this.memberId);
 
-    // Group by date label
-    const byDate = new Map<string, typeof occs>();
-    for (const o of occs) {
-      if (!byDate.has(o.date)) byDate.set(o.date, []);
-      byDate.get(o.date)!.push(o);
-    }
+    if (occs.length === 0) {
+      root.createEl("div", { cls: "ght-muted", text: "No tasks for this period." });
+    } else {
+      for (const occ of occs) {
+        const row = root.createDiv({ cls: "ght-task-row" });
+        const label = occurrenceLabel(occ);
+        const text = row.createDiv({ cls: "ght-task-text" });
+        text.createSpan({ cls: "ght-task-title", text: occ.overrideTitle || occ.titleSnapshot });
+        text.createDiv({ cls: "ght-task-meta", text: `${label} • ${occ.date}` });
 
-    const dates = enumerateDates(this.mode, today).map(d => toYMD(d));
-    for (const date of dates) {
-      const dayOccs = (byDate.get(date) ?? []).slice().sort((a, b) => (a.taskId > b.taskId ? 1 : -1));
-      if (dayOccs.length === 0) continue;
-
-      listCard.createEl("div", { cls: "ght-subtitle", text: date });
-
-      const ul = listCard.createDiv({ cls: "ght-tasklist" });
-      for (const occ of dayOccs) {
-        const row = ul.createDiv({ cls: "ght-task" });
-
-        const cb = row.createEl("input", { type: "checkbox" }) as HTMLInputElement;
-        cb.checked = occ.status === "complete";
-        cb.onchange = async () => {
-          this.plugin.store.setOccurrenceStatus(occ.id, cb.checked ? "complete" : "pending");
-          await this.plugin.store.housekeepingArchiveOldWeeks();
-        };
-
-        const label = row.createEl("div", { cls: "ght-task-title", text: occurrenceLabel(occ) });
-        label.onclick = () =>
-          new TaskModal(this.app, this.plugin.store, { kind: "occurrence", occId: occ.id, taskId: occ.taskId, memberId: occ.memberId }).open();
+        const status = row.createEl("select", { cls: "ght-status-select" });
+        ["pending", "complete", "incomplete"].forEach(s => {
+          const opt = status.createEl("option", { text: s, value: s });
+          if (occ.status === s) opt.selected = true;
+        });
+        status.onchange = () => this.plugin.store.setOccurrenceStatus(occ.id, status.value as any);
 
         const edit = row.createEl("button", { cls: "ght-btn", text: "Edit" });
-        edit.onclick = () =>
-          new TaskModal(this.app, this.plugin.store, { kind: "occurrence", occId: occ.id, taskId: occ.taskId, memberId: occ.memberId }).open();
+        edit.onclick = () => new TaskModal(this.app, this.plugin.store, { kind: "occurrence", occId: occ.id, taskId: occ.taskId, memberId: occ.memberId }).open();
       }
     }
 
-    // Add individual task shortcut
     const addRow = root.createDiv({ cls: "ght-row" });
     const addBtn = addRow.createEl("button", { cls: "ght-btn", text: "Add individual task" });
     addBtn.onclick = () => new TaskModal(this.app, this.plugin.store, { kind: "task", memberId: this.memberId }).open();
@@ -164,17 +161,15 @@ export class MemberView extends ItemView {
       type: "line",
       data: {
         labels,
-        datasets: [
-          {
-            label: "Completion %",
-            data,
-            tension: 0.25
-          }
-        ]
+        datasets: [{
+          label: "Completion %",
+          data,
+          borderColor: "rgba(75, 192, 192, 1)",
+          tension: 0.1,
+          fill: false
+        }]
       },
       options: {
-        responsive: true,
-        animation: false,
         scales: {
           y: { min: 0, max: 100 }
         }

@@ -19,12 +19,8 @@ export default class GroupHabitTrackerPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE_MAIN, (leaf) => new MainView(leaf, this));
 
-    this.registerView(VIEW_TYPE_MEMBER, (leaf) => {
-      const state = leaf.getViewState().state as any;
-      const memberId = (state?.memberId as string | undefined) ?? "";
-      return new MemberView(leaf, this, memberId);
-    });
-
+    this.registerView(VIEW_TYPE_MEMBER, (leaf) => new MemberView(leaf, this, ""));
+    
     this.addRibbonIcon("check-circle", "Group Habit Tracker", () => {
       void this.openMainView();
     });
@@ -58,17 +54,26 @@ export default class GroupHabitTrackerPlugin extends Plugin {
   }
 
   async openMemberView(memberId: string): Promise<void> {
-    const leaf = this.app.workspace.getLeaf("split", "vertical");
-    await leaf.setViewState({
-      type: VIEW_TYPE_MEMBER,
-      active: true,
-      state: { memberId }
-    });
-    this.app.workspace.revealLeaf(leaf);
-  }
+      const existingLeaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_MEMBER).find(leaf => {
+        return (leaf.view as MemberView).getMemberId() === memberId;
+      });
+
+      if (existingLeaf) {
+        this.app.workspace.setActiveLeaf(existingLeaf, { focus: true });
+        return;
+      }
+
+      const leaf = this.app.workspace.getLeaf("split", "vertical");
+      await leaf.setViewState({
+        type: VIEW_TYPE_MEMBER,
+        active: true,
+        state: { memberId }
+      });
+      
+      this.app.workspace.revealLeaf(leaf);
+    }
 
   private getLeafForMain(): WorkspaceLeaf {
-    // Reuse existing main view leaf if present
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_MAIN);
     const existing = leaves.find((l): l is WorkspaceLeaf => !!l);
     return existing ?? this.app.workspace.getLeaf(true);

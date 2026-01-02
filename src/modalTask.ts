@@ -14,7 +14,6 @@ export class TaskModal extends Modal {
   private title = "";
   private notes = "";
 
-  // renamed from `scope` to avoid conflict with Modal.scope (Obsidian type)
   private taskScopeKind: "group" | "individual" = "group";
   private scopeMemberId: UUID | undefined;
 
@@ -314,7 +313,6 @@ export class TaskModal extends Modal {
       return;
     }
 
-    // If editing occurrence-only, save overrides and close.
     if (this.ctx.kind === "occurrence" && this.editOccurrenceOnly) {
       this.store.updateOccurrenceOverrides(this.ctx.occId, this.overrideTitle, this.overrideNotes);
       new Notice("Occurrence updated.");
@@ -326,35 +324,32 @@ export class TaskModal extends Modal {
     const db = this.store.getDB();
 
     let task: TaskTemplate | undefined;
-
     if (this.ctx.kind === "task") {
-    task = this.ctx.task;
+      task = this.ctx.task;
     } else {
-    // ctx is narrowed to occurrence here
-    const occCtx = this.ctx;
-    task = db.tasks.find(t => t.id === occCtx.taskId);
+      const occCtx = this.ctx;
+      task = db.tasks.find(t => t.id === occCtx.taskId);
     }
 
-
     const id = task?.id ?? uuid();
+
+    const effectiveMemberId = this.scopeMemberId || (this.ctx as any).memberId;
 
     const scope =
       this.taskScopeKind === "group"
         ? ({ type: "group" } as const)
-        : ({ type: "individual", memberId: this.scopeMemberId! } as const);
+        : ({ type: "individual", memberId: effectiveMemberId } as const);
 
     const next: TaskTemplate = {
       id,
       title,
       notes: this.notes.trim() || undefined,
-      scope,
       recurrence: rec,
-      deleted: false,
-      deletedAt: undefined
+      scope
     };
 
     this.store.upsertTask(next);
-    new Notice("Task saved.");
+    new Notice(task ? "Task updated." : "Task created.");
     this.close();
   }
 }
