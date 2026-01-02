@@ -333,12 +333,19 @@ export class TaskModal extends Modal {
 
     const id = task?.id ?? uuid();
 
-    const effectiveMemberId = this.scopeMemberId || (this.ctx as any).memberId;
+    let fallbackId = "";
+    if (this.ctx.kind === "task") {
+      fallbackId = this.ctx.memberId ?? "";
+    } else if (this.ctx.kind === "occurrence") {
+      fallbackId = this.ctx.memberId;
+    }
+
+    const finalMemberId = this.scopeMemberId || fallbackId;
 
     const scope =
       this.taskScopeKind === "group"
         ? ({ type: "group" } as const)
-        : ({ type: "individual", memberId: effectiveMemberId } as const);
+        : ({ type: "individual", memberId: finalMemberId } as const);
 
     const next: TaskTemplate = {
       id,

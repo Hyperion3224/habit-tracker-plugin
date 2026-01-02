@@ -37,8 +37,8 @@ export class GHTSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Database filename")
-      .setDesc("Filename used in the data folder.")
+      .setName("Data folder") 
+      .setDesc("Vault folder where group habit tracker stores its JSON database.") 
       .addText(t =>
         t
           .setValue(this.plugin.settings.dbFilename)

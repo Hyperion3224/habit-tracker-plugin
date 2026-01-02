@@ -19,6 +19,10 @@ Chart.register(LineController, LineElement, PointElement, LinearScale, CategoryS
 
 export const VIEW_TYPE_MEMBER = "ght-member";
 
+interface MemberViewState {
+    memberId: string;
+}
+
 export class MemberView extends ItemView {
   private plugin: GroupHabitTrackerPlugin;
   private memberId: UUID;
@@ -48,10 +52,9 @@ export class MemberView extends ItemView {
     return this.memberId;
   } 
 
-  async setState(state: any, result: ViewStateResult): Promise<void> {
+  async setState(state: MemberViewState, result: ViewStateResult): Promise<void> {
     await super.setState(state, result);
-    this.memberId = state.memberId || "";
-    this.app.workspace.requestSaveLayout();
+    this.memberId = state.memberId ?? "";
     this.render();
   }
 
@@ -125,7 +128,10 @@ export class MemberView extends ItemView {
           const opt = status.createEl("option", { text: s, value: s });
           if (occ.status === s) opt.selected = true;
         });
-        status.onchange = () => this.plugin.store.setOccurrenceStatus(occ.id, status.value as any);
+        status.onchange = () => {
+          const val = status.value as "pending" | "complete" | "incomplete";
+          this.plugin.store.setOccurrenceStatus(occ.id, val);
+        };
 
         const edit = row.createEl("button", { cls: "ght-btn", text: "Edit" });
         edit.onclick = () => new TaskModal(this.app, this.plugin.store, { kind: "occurrence", occId: occ.id, taskId: occ.taskId, memberId: occ.memberId }).open();

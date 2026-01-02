@@ -28,8 +28,10 @@ export class GHTStore {
   }
 
   private emit(): void {
-    for (const fn of this.listeners) fn();
-  }
+    for (const fn of this.listeners) {
+        fn(); 
+    }
+  } 
 
   getDB(): GHTDB {
     return this.db;
